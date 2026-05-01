@@ -271,11 +271,12 @@ function HomeScreen({
   handleSearch,
   handleQuickDestination,
   large,
+  es,
 }) {
   const quickDests = [
-    { Icon: Home, label: "Home" },
-    { Icon: Building2, label: "Hospital" },
-    { Icon: Bus, label: "Bus Stop" },
+    { Icon: Home, label: es ? "Casa" : "Home" },
+    { Icon: Building2, label: es ? "Hospital" : "Hospital" },
+    { Icon: Bus, label: es ? "Parada de Autobús" : "Bus Stop" },
   ];
 
   return (
@@ -295,7 +296,7 @@ function HomeScreen({
             Wayve
           </h1>
           <p style={{ color: "#4B5563", fontSize: 13, marginTop: 3 }}>
-            Navigate the world. Feel every turn.
+            {es ? "Navega el mundo. Siente cada giro." : "Navigate the world. Feel every turn."}
           </p>
         </div>
         <button
@@ -363,7 +364,7 @@ function HomeScreen({
           className="font-medium"
           style={{ color: isListening ? "#A5B4FC" : "#6B7280", fontSize: large ? 17 : 14, letterSpacing: "0.01em" }}
         >
-          {isListening ? "Listening…" : "Tap to speak your destination"}
+          {isListening ? (es ? "Escuchando…" : "Listening…") : (es ? "Toca para hablar tu destino" : "Tap to speak your destination")}
         </p>
         {transcript && !isListening && (
           <p
@@ -403,7 +404,7 @@ function HomeScreen({
             value={destinationInput}
             onChange={(e) => setDestinationInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Search a destination…"
+            placeholder={es ? "Buscar un destino…" : "Search a destination…"}
             aria-label="Type a destination"
             className="w-full rounded-2xl font-medium placeholder:font-normal focus:outline-none"
             style={{
@@ -440,7 +441,7 @@ function HomeScreen({
             letterSpacing: "0.01em",
           }}
         >
-          Search
+          {es ? "Buscar" : "Search"}
           <ArrowRight size={16} strokeWidth={2.5} />
         </button>
       </div>
@@ -448,7 +449,7 @@ function HomeScreen({
       {/* ── Quick destinations ── */}
       <div className="flex flex-col gap-2">
         <p style={{ color: "#374151", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", marginBottom: 4 }}>
-          QUICK DESTINATIONS
+          {es ? "DESTINOS RÁPIDOS" : "QUICK DESTINATIONS"}
         </p>
         {quickDests.map(({ Icon, label }) => (
           <button
@@ -498,6 +499,7 @@ function ConfirmScreen({
   setCaneConnected,
   handleStartNavigation,
   large,
+  es,
 }) {
   const address = confirmPreview?.address ?? (confirmPreview?.error ? `Maps error: ${confirmPreview.error}` : "Resolving location…");
   const distanceLabel = confirmPreview?.distance ?? "—";
@@ -519,7 +521,7 @@ function ConfirmScreen({
       <div className="flex flex-col px-5 py-7 gap-6 flex-1">
         <div>
           <p style={{ color: "#4B5563", fontSize: 12, fontWeight: 600, letterSpacing: "0.12em", marginBottom: 6 }}>
-            DESTINATION
+            {es ? "DESTINO" : "DESTINATION"}
           </p>
           <h2
             className="font-bold"
@@ -554,8 +556,8 @@ function ConfirmScreen({
 
           <div className="flex gap-2 flex-wrap">
             {[
-              { Icon: Clock, label: confirmPreview ? `${durationLabel} walk` : "Calculating…" },
-              { Icon: MapPin, label: confirmPreview ? distanceLabel : "Calculating…" },
+              { Icon: Clock, label: confirmPreview ? `${durationLabel} ${es ? "caminando" : "walk"}` : (es ? "Calculando…" : "Calculating…") },
+              { Icon: MapPin, label: confirmPreview ? distanceLabel : (es ? "Calculando…" : "Calculating…") },
             ].map(({ Icon, label }) => (
               <div
                 key={label}
@@ -590,7 +592,7 @@ function ConfirmScreen({
             }}
           >
             <Navigation size={18} strokeWidth={2} />
-            Start Navigation
+            {es ? "Iniciar Navegación" : "Start Navigation"}
           </button>
 
           <button
@@ -605,7 +607,7 @@ function ConfirmScreen({
               fontSize: large ? 16 : 14,
             }}
           >
-            Change Destination
+            {es ? "Cambiar Destino" : "Change Destination"}
           </button>
         </div>
 
@@ -613,7 +615,7 @@ function ConfirmScreen({
           className="text-center mt-auto"
           style={{ color: "#374151", fontSize: 12, lineHeight: 1.7 }}
         >
-          The smart cane will guide you through haptic feedback.
+          {es ? "El bastón te guiará a través de vibración y retroalimentación háptica." : "The smart cane will guide you through haptic feedback."}
         </p>
       </div>
     </motion.div>
@@ -646,6 +648,7 @@ function NavigatingScreen({
   handleRepeatInstruction,
   handleSimulateArrival,
   large,
+  es,
 }) {
   const hasRealSteps = navSteps.length > 0;
   const totalSteps = hasRealSteps ? navSteps.length : 8;
@@ -682,7 +685,7 @@ function NavigatingScreen({
         {navLoading ? (
           <>
             <Loader2 size={13} color="#F59E0B" style={{ animation: "spin 1s linear infinite" }} />
-            <p className="font-medium text-sm" style={{ color: "#F59E0B" }}>Getting your location…</p>
+            <p className="font-medium text-sm" style={{ color: "#F59E0B" }}>{es ? "Obteniendo tu ubicación…" : "Getting your location…"}</p>
           </>
         ) : navError ? (
           <>
@@ -693,13 +696,13 @@ function NavigatingScreen({
           <>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 6px rgba(16,185,129,0.7)", display: "inline-block" }} />
             <p className="font-medium text-sm" style={{ color: "#10B981" }}>
-              Live · {tripDuration} · {tripDistance}
+              {es ? "En vivo" : "Live"} · {tripDuration} · {tripDistance}
             </p>
           </>
         ) : (
           <>
             <Loader2 size={13} color="#6B7280" style={{ animation: "spin 1s linear infinite" }} />
-            <p className="font-medium text-sm" style={{ color: "#6B7280" }}>Waiting for directions…</p>
+            <p className="font-medium text-sm" style={{ color: "#6B7280" }}>{es ? "Esperando direcciones…" : "Waiting for directions…"}</p>
           </>
         )}
       </div>
@@ -728,17 +731,17 @@ function NavigatingScreen({
                 lineHeight: 1.25,
               }}
             >
-              {navLoading ? "Finding your route…" : currentInstruction}
+              {navLoading ? (es ? "Buscando tu ruta…" : "Finding your route…") : currentInstruction}
             </p>
             <p
               className="mt-2"
               style={{ color: "#9CA3AF", fontSize: large ? 16 : 14 }}
             >
               {hasRealSteps && liveDistance !== null
-              ? `${liveDistance}m to next turn`
+              ? `${liveDistance}m ${es ? "al siguiente giro" : "to next turn"}`
               : hasRealSteps
-              ? `In approximately ${distanceToNext}`
-              : "In approximately 20 meters"}
+              ? `${es ? "En aproximadamente" : "In approximately"} ${distanceToNext}`
+              : (es ? "En aproximadamente 20 metros" : "In approximately 20 meters")}
             </p>
           </div>
 
@@ -804,7 +807,7 @@ function NavigatingScreen({
             }}
           >
             <Volume2 size={17} />
-            Repeat Instruction
+            {es ? "Repetir Instrucción" : "Repeat Instruction"}
           </button>
 
           <div className="flex gap-2">
@@ -820,7 +823,7 @@ function NavigatingScreen({
                 fontSize: 12,
               }}
             >
-              Simulate Arrival
+              {es ? "Simular Llegada" : "Simulate Arrival"}
             </button>
 
             <button
@@ -836,7 +839,7 @@ function NavigatingScreen({
               }}
             >
               <StopCircle size={15} />
-              Stop
+              {es ? "Detener" : "Stop"}
             </button>
           </div>
         </div>
@@ -854,6 +857,7 @@ function ArrivedScreen({
   handleShareLocation,
   arrived,
   large,
+  es,
 }) {
   return (
     <motion.div
@@ -887,7 +891,7 @@ function ArrivedScreen({
             letterSpacing: "-0.035em",
           }}
         >
-          You've Arrived
+          {es ? "Has Llegado" : "You've Arrived"}
         </h2>
         <p style={{ color: "#9CA3AF", fontSize: large ? 17 : 16 }}>
           {destination}
@@ -907,7 +911,7 @@ function ArrivedScreen({
             boxShadow: "0 4px 28px rgba(59,130,246,0.35)",
           }}
         >
-          Navigate Again
+          {es ? "Navegar de Nuevo" : "Navigate Again"}
         </button>
 
         <button
@@ -922,7 +926,7 @@ function ArrivedScreen({
             fontSize: large ? 17 : 15,
           }}
         >
-          Share Location
+          {es ? "Compartir Ubicación" : "Share Location"}
         </button>
       </div>
     </motion.div>
@@ -1569,10 +1573,13 @@ export default function WayveApp() {
     });
   }, [currentScreen, destination]); // eslint-disable-line
 
+  const es = language === "Spanish";
+
   const shared = {
     large: largeTextMode,
     caneConnected,
     setCaneConnected,
+    es,
   };
 
   return (
