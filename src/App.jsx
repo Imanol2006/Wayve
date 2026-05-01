@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -10,6 +10,39 @@ import {
   Volume2,
   ArrowRight,
 } from "lucide-react";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function maneuverToDirection(maneuver) {
+  if (!maneuver) return "straight";
+  if (maneuver.includes("left")) return "left";
+  if (maneuver.includes("right")) return "right";
+  return "straight";
+}
+
+function stripHtml(html) {
+  return html?.replace(/<[^>]*>/g, "") ?? "";
+}
+
+function loadGoogleMapsScript(key) {
+  return new Promise((resolve) => {
+    if (window.google?.maps) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -535,17 +568,25 @@ function NavigatingScreen({
   setProgress,
   currentStep,
   setCurrentStep,
-  totalSteps,
+  navSteps,
+  currentStepIndex,
+  tripDuration,
+  tripDistance,
+  navLoading,
+  navError,
   handleStopNavigation,
   handleRepeatInstruction,
   handleSimulateArrival,
   large,
 }) {
-  const instructions = {
-    straight: "Continue straight ahead",
-    left: "Turn left onto Mesa Street",
-    right: "Turn right onto Stanton Street",
-  };
+  const hasRealSteps = navSteps.length > 0;
+  const totalSteps = hasRealSteps ? navSteps.length : 8;
+  const currentInstruction = hasRealSteps
+    ? navSteps[currentStepIndex]?.instruction
+    : { straight: "Continue straight ahead", left: "Turn left", right: "Turn right" }[currentDirection];
+  const distanceToNext = hasRealSteps
+    ? navSteps[currentStepIndex]?.distance
+    : "20 meters";
 
   const bumpProgress = () => {
     setProgress((p) => Math.min(p + 10, 100));
@@ -570,13 +611,22 @@ function NavigatingScreen({
         className="flex flex-col items-center py-3 gap-1 shrink-0"
         style={{ borderBottom: "1px solid #1F2937" }}
       >
-        <p
-          className="font-semibold text-sm"
-          style={{ color: caneConnected ? "#10B981" : "#EF4444" }}
-        >
-          Wayve {caneConnected ? "Connected 🟢" : "Disconnected 🔴"}
-        </p>
-        <p style={{ color: "#4B5563", fontSize: 11 }}>Updating every 3 seconds</p>
+        {navLoading ? (
+          <p className="font-semibold text-sm" style={{ color: "#F59E0B" }}>
+            📍 Getting your location…
+          </p>
+        ) : navError ? (
+          <p className="font-semibold text-sm" style={{ color: "#EF4444" }}>{navError}</p>
+        ) : hasRealSteps ? (
+          <p className="font-semibold text-sm" style={{ color: "#10B981" }}>
+            🗺 Live navigation · {tripDuration} · {tripDistance}
+          </p>
+        ) : (
+          <p className="font-semibold text-sm" style={{ color: "#F59E0B" }}>
+            Waiting for directions…
+          </p>
+        )}
+        <p style={{ color: "#4B5563", fontSize: 11 }}>GPS updating continuously</p>
       </div>
 
       <div className="flex flex-col px-5 py-5 gap-5 flex-1">
@@ -603,13 +653,13 @@ function NavigatingScreen({
                 lineHeight: 1.25,
               }}
             >
-              {instructions[currentDirection]}
+              {navLoading ? "Finding your route…" : currentInstruction}
             </p>
             <p
               className="mt-2"
               style={{ color: "#9CA3AF", fontSize: large ? 16 : 14 }}
             >
-              In approximately 20 meters
+              {hasRealSteps ? `In approximately ${distanceToNext}` : "In approximately 20 meters"}
             </p>
           </div>
 
@@ -652,7 +702,9 @@ function NavigatingScreen({
           </div>
           <div className="flex items-center justify-between">
             <p style={{ color: "#9CA3AF", fontSize: 13 }}>
-              {currentStep} of {totalSteps} steps completed
+              {hasRealSteps
+                ? `Step ${currentStepIndex + 1} of ${navSteps.length}`
+                : `${currentStep} of ${totalSteps} steps`}
             </p>
             <p style={{ color: "#9CA3AF", fontSize: 13 }}>{Math.round(progress)}%</p>
           </div>
@@ -1070,7 +1122,16 @@ export default function WayveApp() {
   const [currentDirection, setCurrentDirection] = useState("straight");
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 8;
+
+  // ── Real directions ──
+  const [navSteps, setNavSteps] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [tripDuration, setTripDuration] = useState("");
+  const [tripDistance, setTripDistance] = useState("");
+  const [navLoading, setNavLoading] = useState(false);
+  const [navError, setNavError] = useState(null);
+  const navStepsRef = useRef([]);
+  const stepIndexRef = useRef(0);
 
   // ── Arrived ──
   const [arrived, setArrived] = useState(false);
@@ -1122,22 +1183,75 @@ export default function WayveApp() {
     // TODO: connect to backend — resolve preset destinations from user profile or nearest-POI API
   };
 
-  const handleStartNavigation = () => {
+  const handleStartNavigation = async () => {
     setProgress(0);
     setCurrentStep(0);
+    setCurrentStepIndex(0);
+    setNavSteps([]);
+    setNavError(null);
+    setNavLoading(true);
     navigate("navigating");
-    // TODO: connect to backend — POST /api/navigation/start { destination, speed: walkingSpeed }
+
+    try {
+      const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+      await loadGoogleMapsScript(key);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const service = new window.google.maps.DirectionsService();
+          service.route(
+            {
+              origin,
+              destination,
+              travelMode: window.google.maps.TravelMode.WALKING,
+            },
+            (result, status) => {
+              setNavLoading(false);
+              if (status !== "OK") { setNavError("Could not find directions."); return; }
+              const leg = result.routes[0].legs[0];
+              const steps = leg.steps.map((s) => ({
+                instruction: stripHtml(s.instructions),
+                distance: s.distance.text,
+                maneuver: s.maneuver ?? "",
+                endLat: s.end_location.lat(),
+                endLng: s.end_location.lng(),
+              }));
+              setNavSteps(steps);
+              navStepsRef.current = steps;
+              stepIndexRef.current = 0;
+              setTripDuration(leg.duration.text);
+              setTripDistance(leg.distance.text);
+              setCurrentDirection(maneuverToDirection(steps[0]?.maneuver));
+              setProgress(0);
+              setCurrentStep(0);
+            }
+          );
+        },
+        () => { setNavLoading(false); setNavError("Location access denied."); },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } catch (e) {
+      setNavLoading(false);
+      setNavError("Failed to load Maps.");
+    }
   };
 
   const handleStopNavigation = () => {
     setProgress(0);
     setCurrentStep(0);
+    setCurrentStepIndex(0);
+    setNavSteps([]);
+    navStepsRef.current = [];
     navigate("home");
-    // TODO: connect to backend — POST /api/navigation/stop
   };
 
   const handleRepeatInstruction = () => {
-    // TODO: connect to backend — GET /api/navigation/current-instruction, pass text to window.speechSynthesis
+    const step = navStepsRef.current[stepIndexRef.current];
+    const text = step?.instruction || "Continue straight ahead";
+    const utt = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utt);
   };
 
   const handleShareLocation = () => {
@@ -1175,6 +1289,51 @@ export default function WayveApp() {
       setTimeout(() => setArrived(true), 120);
     }, 350);
   };
+
+  // ── GPS watch while navigating ──
+  useEffect(() => {
+    if (currentScreen !== "navigating") return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const steps = navStepsRef.current;
+        const idx = stepIndexRef.current;
+        if (!steps.length) return;
+
+        const step = steps[idx];
+        const dist = haversineDistance(lat, lng, step.endLat, step.endLng);
+
+        if (dist < 20) {
+          const next = idx + 1;
+          if (next < steps.length) {
+            stepIndexRef.current = next;
+            setCurrentStepIndex(next);
+            setCurrentStep(next);
+            setCurrentDirection(maneuverToDirection(steps[next].maneuver));
+            setProgress(Math.round((next / steps.length) * 100));
+            // Speak next instruction
+            const utt = new SpeechSynthesisUtterance(steps[next].instruction);
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utt);
+          } else {
+            // Last step — arrived
+            setProgress(100);
+            setCurrentStep(steps.length);
+            setTimeout(() => {
+              setArrived(false);
+              navigate("arrived");
+              setTimeout(() => setArrived(true), 120);
+            }, 500);
+          }
+        }
+      },
+      (err) => console.warn("GPS error:", err.message),
+      { enableHighAccuracy: true, maximumAge: 3000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [currentScreen]); // eslint-disable-line
 
   const shared = {
     large: largeTextMode,
@@ -1230,7 +1389,12 @@ export default function WayveApp() {
               setProgress={setProgress}
               currentStep={currentStep}
               setCurrentStep={setCurrentStep}
-              totalSteps={totalSteps}
+              navSteps={navSteps}
+              currentStepIndex={currentStepIndex}
+              tripDuration={tripDuration}
+              tripDistance={tripDistance}
+              navLoading={navLoading}
+              navError={navError}
               handleStopNavigation={handleStopNavigation}
               handleRepeatInstruction={handleRepeatInstruction}
               handleSimulateArrival={handleSimulateArrival}
