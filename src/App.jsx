@@ -830,6 +830,8 @@ function SettingsScreen({
   language,
   setLanguage,
   handleTestConnection,
+  mapsStatus,
+  handleTestMapsAPI,
   large,
 }) {
   const card = {
@@ -977,6 +979,45 @@ function SettingsScreen({
           />
         </div>
 
+        {/* Google Maps */}
+        <SectionDivider label="Google Maps" />
+        <div style={card}>
+          <div className="px-5 py-4 flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <p className="font-medium" style={{ color: "#F9FAFB", fontSize: large ? 17 : 15 }}>
+                Directions API
+              </p>
+              <p style={{ color: "#6B7280", fontSize: 12 }}>
+                {mapsStatus === "ok"  && "✅ Key is valid and working"}
+                {mapsStatus === "error" && "❌ Key invalid or request failed"}
+                {mapsStatus === "loading" && "Testing…"}
+                {mapsStatus === null && "Tap to verify your API key"}
+              </p>
+            </div>
+            <button
+              onClick={handleTestMapsAPI}
+              disabled={mapsStatus === "loading"}
+              aria-label="Test Google Maps API key"
+              className="cane-btn px-4 py-2 rounded-lg font-semibold text-sm"
+              style={{
+                background:
+                  mapsStatus === "ok"    ? "rgba(16,185,129,0.1)"  :
+                  mapsStatus === "error" ? "rgba(239,68,68,0.1)"   : "#1A2235",
+                border: `1px solid ${
+                  mapsStatus === "ok"    ? "rgba(16,185,129,0.35)" :
+                  mapsStatus === "error" ? "rgba(239,68,68,0.3)"   : "#1F2937"
+                }`,
+                color:
+                  mapsStatus === "ok"    ? "#10B981" :
+                  mapsStatus === "error" ? "#EF4444"  : "#9CA3AF",
+                opacity: mapsStatus === "loading" ? 0.6 : 1,
+              }}
+            >
+              {mapsStatus === "loading" ? "Testing…" : "Test Key"}
+            </button>
+          </div>
+        </div>
+
         {/* Language */}
         <SectionDivider label="Language" />
         <div style={{ ...card, marginBottom: 8 }}>
@@ -1033,6 +1074,9 @@ export default function WayveApp() {
 
   // ── Arrived ──
   const [arrived, setArrived] = useState(false);
+
+  // ── Maps API test ──
+  const [mapsStatus, setMapsStatus] = useState(null); // null | "loading" | "ok" | "error"
 
   // ── Settings ──
   const [arduinoIP, setArduinoIP] = useState("192.168.1.x");
@@ -1103,6 +1147,22 @@ export default function WayveApp() {
   const handleTestConnection = () => {
     setCaneConnected((v) => !v); // demo toggle
     // TODO: connect to backend — fetch(`http://${arduinoIP}/ping`).then(updateCaneConnected)
+  };
+
+  const handleTestMapsAPI = async () => {
+    setMapsStatus("loading");
+    try {
+      const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=El+Paso,TX&key=${key}`
+      );
+      const data = await res.json();
+      console.log("Maps API response:", data.status, data.error_message);
+      setMapsStatus(data.status === "OK" ? "ok" : "error");
+    } catch (e) {
+      console.log("Maps API fetch error:", e.message);
+      setMapsStatus("error");
+    }
   };
 
   const handleSimulateArrival = () => {
@@ -1208,6 +1268,8 @@ export default function WayveApp() {
               language={language}
               setLanguage={setLanguage}
               handleTestConnection={handleTestConnection}
+              mapsStatus={mapsStatus}
+              handleTestMapsAPI={handleTestMapsAPI}
             />
           )}
         </AnimatePresence>
