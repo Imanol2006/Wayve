@@ -1341,38 +1341,21 @@ export default function WayveApp() {
       await loadGoogleMapsScript(key);
 
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          const service = new window.google.maps.DirectionsService();
-          const navDestination = confirmPreview?.address ?? destination;
-          service.route(
-            {
-              origin,
-              destination: navDestination,
-              travelMode: window.google.maps.TravelMode.WALKING,
-              region: "us",
-            },
-            (result, status) => {
-              setNavLoading(false);
-              if (status !== "OK") { setNavError(`Directions failed: ${status}`); return; }
-              const leg = result.routes[0].legs[0];
-              const steps = leg.steps.map((s) => ({
-                instruction: stripHtml(s.instructions),
-                distance: s.distance.text,
-                maneuver: s.maneuver ?? "",
-                endLat: s.end_location.lat(),
-                endLng: s.end_location.lng(),
-              }));
-              setNavSteps(steps);
-              navStepsRef.current = steps;
-              stepIndexRef.current = 0;
-              setTripDuration(leg.duration.text);
-              setTripDistance(leg.distance.text);
-              setCurrentDirection(maneuverToDirection(steps[0]?.maneuver));
-              setProgress(0);
-              setCurrentStep(0);
-            }
-          );
+          const destText = confirmPreview?.address ?? destination;
+          const result = await geocodeAndRoute(origin, destText);
+          setNavLoading(false);
+          if (!result) { setNavError("Could not find that location. Try a more specific name."); return; }
+          setNavSteps(result.steps);
+          navStepsRef.current = result.steps;
+          stepIndexRef.current = 0;
+          setTripDuration(result.duration);
+          setTripDistance(result.distance);
+          setCurrentDirection(maneuverToDirection(result.steps[0]?.maneuver));
+          setArrowRotation(maneuverToRotation(result.steps[0]?.maneuver));
+          setProgress(0);
+          setCurrentStep(0);
         },
         () => { setNavLoading(false); setNavError("Location access denied."); },
         { enableHighAccuracy: true, timeout: 10000 }
@@ -1498,35 +1481,55 @@ export default function WayveApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [currentScreen]); // eslint-disable-line
 
+  // Geocode destination near origin, then route — returns a Promise<{steps,duration,distance,address}|null>
+  const geocodeAndRoute = (origin, destText) => new Promise((resolve) => {
+    const geocoder = new window.google.maps.Geocoder();
+    const bounds = new window.google.maps.LatLngBounds(
+      new window.google.maps.LatLng(origin.lat - 0.15, origin.lng - 0.15),
+      new window.google.maps.LatLng(origin.lat + 0.15, origin.lng + 0.15)
+    );
+    geocoder.geocode({ address: destText, bounds }, (geoResults, geoStatus) => {
+      if (geoStatus !== "OK" || !geoResults.length) { resolve(null); return; }
+      const destLatLng = geoResults[0].geometry.location;
+      const resolvedAddress = geoResults[0].formatted_address;
+      const service = new window.google.maps.DirectionsService();
+      service.route(
+        { origin, destination: destLatLng, travelMode: window.google.maps.TravelMode.WALKING },
+        (result, status) => {
+          if (status !== "OK") { resolve(null); return; }
+          const leg = result.routes[0].legs[0];
+          const steps = leg.steps.map((s) => ({
+            instruction: stripHtml(s.instructions),
+            distance: s.distance.text,
+            maneuver: s.maneuver ?? "",
+            endLat: s.end_location.lat(),
+            endLng: s.end_location.lng(),
+          }));
+          resolve({
+            steps,
+            address: leg.end_address || resolvedAddress,
+            distance: leg.distance.text,
+            duration: leg.duration.text,
+          });
+        }
+      );
+    });
+  });
+
   // Resolve real address + distance when confirm screen opens
   useEffect(() => {
     if (currentScreen !== "confirm" || !destination) return;
     setConfirmPreview(null);
     const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
     loadGoogleMapsScript(key).then(() => {
-      navigator.geolocation.getCurrentPosition((pos) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
         const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const service = new window.google.maps.DirectionsService();
-        service.route(
-          {
-            origin,
-            destination,
-            travelMode: window.google.maps.TravelMode.WALKING,
-            region: "us",
-          },
-          (result, status) => {
-            if (status === "OK") {
-              const leg = result.routes[0].legs[0];
-              setConfirmPreview({
-                address: leg.end_address,
-                distance: leg.distance.text,
-                duration: leg.duration.text,
-              });
-            } else {
-              setConfirmPreview({ error: status });
-            }
-          }
-        );
+        const result = await geocodeAndRoute(origin, destination);
+        if (result) {
+          setConfirmPreview({ address: result.address, distance: result.distance, duration: result.duration });
+        } else {
+          setConfirmPreview({ error: "NOT_FOUND" });
+        }
       });
     });
   }, [currentScreen, destination]); // eslint-disable-line
