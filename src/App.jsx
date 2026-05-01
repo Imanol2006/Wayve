@@ -341,6 +341,14 @@ function HomeScreen({
         >
           {isListening ? "Listening…" : "Speak your destination"}
         </p>
+        {transcript && !isListening && (
+          <p
+            className="text-center font-medium px-6"
+            style={{ color: "#F9FAFB", fontSize: 14, maxWidth: 300 }}
+          >
+            "{transcript}"
+          </p>
+        )}
       </div>
 
       {/* ── Divider ── */}
@@ -1144,6 +1152,7 @@ export default function WayveApp() {
 
   // ── Home ──
   const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
   const [destinationInput, setDestinationInput] = useState("");
   const [destination, setDestination] = useState("");
 
@@ -1196,9 +1205,61 @@ export default function WayveApp() {
 
   // ── Placeholder handlers ──
 
+  const procesarConGemini = async (textoUsuario) => {
+    const key = import.meta.env.VITE_GEMINI_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const body = {
+      contents: [{
+        parts: [{ text: `You are a navigation assistant. The user says: "${textoUsuario}". Extract the destination and respond only with JSON: {"destino": "place name"}` }]
+      }]
+    };
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      let text = data.candidates[0].content.parts[0].text;
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(text);
+      if (parsed.destino) {
+        setDestination(parsed.destino);
+        setTranscript("");
+        navigate("confirm");
+      }
+    } catch (e) {
+      console.error("Gemini error:", e.message);
+      setTranscript("Could not understand destination. Try again.");
+    }
+  };
+
   const handleMicPress = () => {
-    setIsListening((v) => !v);
-    // TODO: connect to backend — start/stop SpeechRecognition Web API and send transcript to navigation service
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice recognition not supported. Please use Chrome.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = language === "Spanish" ? "es-ES" : "en-US";
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setTranscript("Listening…");
+    };
+    recognition.onresult = async (event) => {
+      const text = event.results[0][0].transcript;
+      setTranscript(text);
+      setIsListening(false);
+      await procesarConGemini(text);
+    };
+    recognition.onerror = (event) => {
+      setTranscript("Error: " + event.error);
+      setIsListening(false);
+    };
+    recognition.start();
   };
 
   const handleSearch = () => {
