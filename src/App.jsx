@@ -1,4 +1,4 @@
-import { useState, useEffect, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -10,6 +10,7 @@ import {
   Volume2,
   ArrowRight,
 } from "lucide-react";
+import * as bluetooth from "./services/bluetooth.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1392,7 +1393,7 @@ export default function WayveApp() {
   const handleSimulateArrival = () => {
     // TODO: connect to backend — remove this; arrival is pushed by backend WebSocket event
     setProgress(100);
-    setCurrentStep(totalSteps);
+    setCurrentStep(navSteps.length || 8);
     setTimeout(() => {
       setArrived(false);
       navigate("arrived");
