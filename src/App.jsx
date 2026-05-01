@@ -1481,47 +1481,74 @@ export default function WayveApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [currentScreen]); // eslint-disable-line
 
-  // Find place near origin using Places API, then route
-  const geocodeAndRoute = (origin, destText) => new Promise((resolve) => {
-    const mapDiv = document.createElement("div");
-    const map = new window.google.maps.Map(mapDiv, { center: origin, zoom: 15 });
-    const places = new window.google.maps.places.PlacesService(map);
-
-    places.findPlaceFromQuery(
-      {
-        query: destText,
-        fields: ["geometry", "formatted_address", "name"],
-        locationBias: new window.google.maps.Circle({ center: origin, radius: 15000 }),
-      },
-      (results, status) => {
-        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-          resolve(null); return;
-        }
-        const destLatLng = results[0].geometry.location;
-        const resolvedAddress = results[0].formatted_address || results[0].name;
-        const service = new window.google.maps.DirectionsService();
-        service.route(
-          { origin, destination: destLatLng, travelMode: window.google.maps.TravelMode.WALKING },
-          (result, status) => {
-            if (status !== "OK") { resolve(null); return; }
-            const leg = result.routes[0].legs[0];
-            const steps = leg.steps.map((s) => ({
-              instruction: stripHtml(s.instructions),
-              distance: s.distance.text,
-              maneuver: s.maneuver ?? "",
-              endLat: s.end_location.lat(),
-              endLng: s.end_location.lng(),
-            }));
-            resolve({
-              steps,
-              address: leg.end_address || resolvedAddress,
-              distance: leg.distance.text,
-              duration: leg.duration.text,
-            });
-          }
-        );
+  // Route to a lat/lng using DirectionsService
+  const routeToLatLng = (origin, destLatLng, resolvedAddress) => new Promise((resolve) => {
+    const service = new window.google.maps.DirectionsService();
+    service.route(
+      { origin, destination: destLatLng, travelMode: window.google.maps.TravelMode.WALKING },
+      (result, status) => {
+        if (status !== "OK") { resolve(null); return; }
+        const leg = result.routes[0].legs[0];
+        resolve({
+          steps: leg.steps.map((s) => ({
+            instruction: stripHtml(s.instructions),
+            distance: s.distance.text,
+            maneuver: s.maneuver ?? "",
+            endLat: s.end_location.lat(),
+            endLng: s.end_location.lng(),
+          })),
+          address: leg.end_address || resolvedAddress,
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+        });
       }
     );
+  });
+
+  // Find place near origin, then route — tries Places textSearch, then Geocoder fallback
+  const geocodeAndRoute = (origin, destText) => new Promise((resolve) => {
+    const geocoder = new window.google.maps.Geocoder();
+
+    const tryGeocoderFallback = (query) => {
+      geocoder.geocode({ address: query }, async (results, status) => {
+        if (status !== "OK" || !results?.length) { resolve(null); return; }
+        const result = await routeToLatLng(origin, results[0].geometry.location, results[0].formatted_address);
+        resolve(result);
+      });
+    };
+
+    // First: reverse geocode to get city context
+    geocoder.geocode({ location: origin }, (revResults, revStatus) => {
+      let cityCtx = "";
+      if (revStatus === "OK" && revResults[0]) {
+        const c = revResults[0].address_components;
+        const city = c.find(x => x.types.includes("locality"))?.long_name;
+        const state = c.find(x => x.types.includes("administrative_area_level_1"))?.short_name;
+        if (city && state) cityCtx = `, ${city}, ${state}`;
+      }
+      const enrichedQuery = `${destText}${cityCtx}`;
+
+      // Try Places textSearch first
+      try {
+        const mapDiv = document.createElement("div");
+        const map = new window.google.maps.Map(mapDiv, { center: origin, zoom: 14 });
+        const places = new window.google.maps.places.PlacesService(map);
+        places.textSearch(
+          { query: enrichedQuery, location: new window.google.maps.LatLng(origin.lat, origin.lng), radius: 15000 },
+          async (results, status) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && results?.length) {
+              const result = await routeToLatLng(origin, results[0].geometry.location, results[0].formatted_address || results[0].name);
+              resolve(result);
+            } else {
+              // Fallback to Geocoder with enriched query
+              tryGeocoderFallback(enrichedQuery);
+            }
+          }
+        );
+      } catch {
+        tryGeocoderFallback(enrichedQuery);
+      }
+    });
   });
 
   // Resolve real address + distance when confirm screen opens
