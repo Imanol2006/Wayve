@@ -9,6 +9,17 @@ import {
   StopCircle,
   Volume2,
   ArrowRight,
+  Home,
+  Building2,
+  Bus,
+  MapPin,
+  Clock,
+  Navigation,
+  Loader2,
+  AlertCircle,
+  Check,
+  X,
+  Radio,
 } from "lucide-react";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -74,13 +85,21 @@ function ConnectionPill({ connected }) {
     <span
       className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold select-none"
       style={{
-        background: connected ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.12)",
-        border: `1px solid ${connected ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.3)"}`,
+        background: connected ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.08)",
+        border: `1px solid ${connected ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.25)"}`,
         color: connected ? "#10B981" : "#EF4444",
         transition: "all 200ms ease",
       }}
     >
-      {connected ? "🟢" : "🔴"}&nbsp;{connected ? "Connected" : "Disconnected"}
+      <span
+        style={{
+          width: 6, height: 6, borderRadius: "50%",
+          background: connected ? "#10B981" : "#EF4444",
+          display: "inline-block",
+          boxShadow: connected ? "0 0 6px rgba(16,185,129,0.7)" : "0 0 6px rgba(239,68,68,0.6)",
+        }}
+      />
+      {connected ? "Connected" : "Disconnected"}
     </span>
   );
 }
@@ -254,9 +273,9 @@ function HomeScreen({
   large,
 }) {
   const quickDests = [
-    { emoji: "🏠", label: "Home" },
-    { emoji: "🏥", label: "Nearest Hospital" },
-    { emoji: "🚌", label: "Nearest Bus Stop" },
+    { Icon: Home, label: "Home" },
+    { Icon: Building2, label: "Hospital" },
+    { Icon: Bus, label: "Bus Stop" },
   ];
 
   return (
@@ -266,50 +285,56 @@ function HomeScreen({
       className="flex flex-col min-h-screen px-6 pb-10"
       style={{ background: "#0A0E1A" }}
     >
-      {/* ── Identity ── */}
-      <div className="flex flex-col items-center text-center mt-[72px] mb-10">
-        <h1
-          className="font-black"
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between pt-14 pb-2">
+        <div>
+          <h1
+            className="font-black"
+            style={{ color: "#F9FAFB", fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1 }}
+          >
+            Wayve
+          </h1>
+          <p style={{ color: "#4B5563", fontSize: 13, marginTop: 3 }}>
+            Navigate the world. Feel every turn.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("settings")}
+          aria-label="Open settings"
+          className="cane-btn flex items-center justify-center rounded-full"
           style={{
-            color: "#F9FAFB",
-            fontSize: 58,
-            lineHeight: 1.0,
-            letterSpacing: "-0.04em",
+            width: 40, height: 40,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          Wayve
-        </h1>
-        <p
-          className="mt-3 font-normal"
-          style={{ color: "#9CA3AF", fontSize: 16, letterSpacing: "0.01em" }}
-        >
-          Navigate the world. Feel every turn.
-        </p>
+          <Settings size={16} color="#6B7280" />
+        </button>
       </div>
 
-      {/* ── Mic button ── */}
-      <div className="flex flex-col items-center gap-3 mb-9">
-        <div className="relative flex items-center justify-center">
+      {/* ── Mic hero ── */}
+      <div className="flex flex-col items-center mt-10 mb-10">
+        <div className="relative flex items-center justify-center mb-5">
           {isListening && (
             <>
               <span
                 aria-hidden="true"
                 style={{
                   position: "absolute",
-                  inset: -14,
+                  inset: -18,
                   borderRadius: "50%",
-                  border: "2px solid #7C3AED",
-                  animation: "cane-pulse-outer 1.5s ease-out infinite",
+                  border: "1.5px solid rgba(99,102,241,0.5)",
+                  animation: "cane-pulse-outer 1.6s ease-out infinite",
                 }}
               />
               <span
                 aria-hidden="true"
                 style={{
                   position: "absolute",
-                  inset: -5,
+                  inset: -8,
                   borderRadius: "50%",
-                  border: "2px solid rgba(124,58,237,0.65)",
-                  animation: "cane-pulse-inner 1.5s ease-out 0.3s infinite",
+                  border: "1.5px solid rgba(99,102,241,0.35)",
+                  animation: "cane-pulse-inner 1.6s ease-out 0.35s infinite",
                 }}
               />
             </>
@@ -319,33 +344,37 @@ function HomeScreen({
             aria-label={isListening ? "Stop listening" : "Speak your destination"}
             className="cane-btn relative flex items-center justify-center rounded-full"
             style={{
-              width: 88,
-              height: 88,
-              background: isListening ? "#7C3AED" : "#3B82F6",
+              width: 96,
+              height: 96,
+              background: isListening
+                ? "linear-gradient(135deg, #6366F1, #8B5CF6)"
+                : "linear-gradient(135deg, #2563EB, #3B82F6)",
               boxShadow: isListening
-                ? "0 0 52px rgba(124,58,237,0.5), 0 8px 32px rgba(0,0,0,0.55)"
-                : "0 0 40px rgba(59,130,246,0.32), 0 8px 32px rgba(0,0,0,0.45)",
-              transition: "background 240ms ease, box-shadow 240ms ease",
+                ? "0 0 60px rgba(99,102,241,0.45), 0 12px 40px rgba(0,0,0,0.6)"
+                : "0 0 48px rgba(59,130,246,0.28), 0 12px 40px rgba(0,0,0,0.5)",
+              transition: "background 300ms ease, box-shadow 300ms ease",
             }}
           >
-            <Mic size={34} color="white" />
+            <Mic size={36} color="white" strokeWidth={1.8} />
           </button>
         </div>
+
         <p
           className="font-medium"
-          style={{
-            color: "#9CA3AF",
-            fontSize: large ? 18 : 15,
-            minHeight: 24,
-            transition: "opacity 200ms ease",
-          }}
+          style={{ color: isListening ? "#A5B4FC" : "#6B7280", fontSize: large ? 17 : 14, letterSpacing: "0.01em" }}
         >
-          {isListening ? "Listening…" : "Speak your destination"}
+          {isListening ? "Listening…" : "Tap to speak your destination"}
         </p>
         {transcript && !isListening && (
           <p
-            className="text-center font-medium px-6"
-            style={{ color: "#F9FAFB", fontSize: 14, maxWidth: 300 }}
+            className="text-center mt-2 px-4"
+            style={{
+              color: "#E5E7EB",
+              fontSize: 14,
+              maxWidth: 280,
+              fontStyle: "italic",
+              lineHeight: 1.5,
+            }}
           >
             "{transcript}"
           </p>
@@ -353,97 +382,106 @@ function HomeScreen({
       </div>
 
       {/* ── Divider ── */}
-      <div className="flex items-center gap-3 mb-7">
-        <div className="flex-1 h-px" style={{ background: "#1F2937" }} />
-        <span
-          className="text-xs font-semibold"
-          style={{ color: "#374151", letterSpacing: "0.12em" }}
-        >
-          or
+      <div className="flex items-center gap-4 mb-6">
+        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <span style={{ color: "#374151", fontSize: 11, fontWeight: 600, letterSpacing: "0.14em" }}>
+          OR
         </span>
-        <div className="flex-1 h-px" style={{ background: "#1F2937" }} />
+        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
 
       {/* ── Text input ── */}
-      <div className="flex flex-col gap-3 mb-8">
-        <input
-          type="text"
-          value={destinationInput}
-          onChange={(e) => setDestinationInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="Type a destination…"
-          aria-label="Type a destination"
-          className="w-full rounded-xl px-4 font-medium placeholder:font-normal focus:outline-none"
-          style={{
-            background: "#111827",
-            border: "1px solid #1F2937",
-            color: "#F9FAFB",
-            fontSize: large ? 18 : 16,
-            height: 52,
-            caretColor: "#3B82F6",
-            transition: "border-color 150ms, box-shadow 150ms",
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = "#3B82F6";
-            e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.15)";
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = "#1F2937";
-            e.target.style.boxShadow = "none";
-          }}
-        />
+      <div className="flex flex-col gap-2.5 mb-8">
+        <div className="relative">
+          <Search
+            size={16}
+            color="#4B5563"
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          />
+          <input
+            type="text"
+            value={destinationInput}
+            onChange={(e) => setDestinationInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="Search a destination…"
+            aria-label="Type a destination"
+            className="w-full rounded-2xl font-medium placeholder:font-normal focus:outline-none"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "#F9FAFB",
+              fontSize: large ? 17 : 15,
+              height: 52,
+              paddingLeft: 42,
+              paddingRight: 16,
+              caretColor: "#3B82F6",
+              transition: "border-color 150ms, box-shadow 150ms",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "rgba(59,130,246,0.5)";
+              e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.1)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "rgba(255,255,255,0.08)";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+        </div>
         <button
           onClick={handleSearch}
           aria-label="Search for destination"
-          className="cane-btn w-full flex items-center justify-center gap-2 rounded-xl font-bold"
+          className="cane-btn w-full flex items-center justify-center gap-2 rounded-2xl font-semibold"
           style={{
-            background: "#3B82F6",
+            background: "linear-gradient(135deg, #2563EB, #3B82F6)",
             color: "#fff",
             height: 52,
-            fontSize: large ? 17 : 16,
-            boxShadow: "0 4px 24px rgba(59,130,246,0.3)",
+            fontSize: large ? 16 : 15,
+            boxShadow: "0 4px 20px rgba(59,130,246,0.28)",
+            letterSpacing: "0.01em",
           }}
         >
-          <Search size={18} />
           Search
+          <ArrowRight size={16} strokeWidth={2.5} />
         </button>
       </div>
 
       {/* ── Quick destinations ── */}
-      <div className="flex gap-2 mb-6">
-        {quickDests.map(({ emoji, label }) => (
+      <div className="flex flex-col gap-2">
+        <p style={{ color: "#374151", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", marginBottom: 4 }}>
+          QUICK DESTINATIONS
+        </p>
+        {quickDests.map(({ Icon, label }) => (
           <button
             key={label}
             onClick={() => handleQuickDestination(label)}
             aria-label={`Quick destination: ${label}`}
-            className="cane-btn flex-1 flex flex-col items-center gap-1.5 py-3 px-1.5 rounded-xl"
+            className="cane-btn flex items-center gap-3 px-4 py-3.5 rounded-2xl"
             style={{
-              background: "#111827",
-              border: "1px solid #1F2937",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              transition: "background 150ms, border-color 150ms",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
             }}
           >
-            <span style={{ fontSize: 20 }}>{emoji}</span>
             <span
-              className="text-center font-medium leading-tight"
-              style={{ color: "#9CA3AF", fontSize: 11 }}
+              className="flex items-center justify-center rounded-xl"
+              style={{ width: 36, height: 36, background: "rgba(59,130,246,0.12)", flexShrink: 0 }}
             >
+              <Icon size={16} color="#3B82F6" />
+            </span>
+            <span style={{ color: "#D1D5DB", fontSize: large ? 16 : 14, fontWeight: 500 }}>
               {label}
             </span>
+            <ArrowRight size={14} color="#374151" style={{ marginLeft: "auto" }} />
           </button>
         ))}
-      </div>
-
-      {/* ── Settings link ── */}
-      <div className="flex justify-center">
-        <button
-          onClick={() => navigate("settings")}
-          aria-label="Open app settings"
-          className="cane-btn flex items-center gap-1.5 px-4 py-2 rounded-full"
-          style={{ color: "#4B5563", fontSize: 13 }}
-        >
-          <Settings size={14} />
-          Settings
-        </button>
       </div>
     </motion.div>
   );
@@ -479,58 +517,55 @@ function ConfirmScreen({
       />
 
       <div className="flex flex-col px-5 py-7 gap-6 flex-1">
-        <h2
-          className="font-bold"
-          style={{ color: "#F9FAFB", fontSize: 28, letterSpacing: "-0.025em" }}
-        >
-          Your Destination
-        </h2>
+        <div>
+          <p style={{ color: "#4B5563", fontSize: 12, fontWeight: 600, letterSpacing: "0.12em", marginBottom: 6 }}>
+            DESTINATION
+          </p>
+          <h2
+            className="font-bold"
+            style={{ color: "#F9FAFB", fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1.1 }}
+          >
+            {destination}
+          </h2>
+        </div>
 
         {/* Card */}
         <div
           className="rounded-2xl p-5 flex flex-col gap-4"
           style={{
             background: "rgba(255,255,255,0.04)",
-            backdropFilter: "blur(16px)",
             border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.48)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.4)",
           }}
         >
-          <div>
-            <p
-              className="font-bold"
-              style={{
-                color: "#F9FAFB",
-                fontSize: large ? 24 : 22,
-                letterSpacing: "-0.02em",
-              }}
+          <div className="flex items-start gap-3">
+            <span
+              className="flex items-center justify-center rounded-xl mt-0.5"
+              style={{ width: 36, height: 36, background: "rgba(59,130,246,0.12)", flexShrink: 0 }}
             >
-              {destination}
-            </p>
-            <p
-              className="mt-1.5"
-              style={{ color: "#9CA3AF", fontSize: large ? 15 : 14 }}
-            >
+              <MapPin size={16} color="#3B82F6" />
+            </span>
+            <p style={{ color: "#9CA3AF", fontSize: large ? 15 : 14, lineHeight: 1.5 }}>
               {address}
             </p>
           </div>
 
-          <div style={{ height: 1, background: "#1F2937" }} />
+          <div style={{ height: 1, background: "rgba(255,255,255,0.06)" }} />
 
           <div className="flex gap-2 flex-wrap">
             {[
-              { icon: "🚶", label: confirmPreview ? `${durationLabel} walk` : "…" },
-              { icon: "📍", label: confirmPreview ? distanceLabel : "…" },
-            ].map(({ icon, label }) => (
+              { Icon: Clock, label: confirmPreview ? `${durationLabel} walk` : "Calculating…" },
+              { Icon: MapPin, label: confirmPreview ? distanceLabel : "Calculating…" },
+            ].map(({ Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                style={{ background: "#111827", border: "1px solid #1F2937" }}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.18)" }}
               >
-                <span className="text-sm">{icon}</span>
+                <Icon size={14} color="#3B82F6" />
                 <span
                   className="font-medium"
-                  style={{ color: "#9CA3AF", fontSize: 13 }}
+                  style={{ color: "#93C5FD", fontSize: 13 }}
                 >
                   {label}
                 </span>
@@ -544,29 +579,30 @@ function ConfirmScreen({
           <button
             onClick={handleStartNavigation}
             aria-label="Start navigation to this destination"
-            className="cane-btn w-full flex items-center justify-center gap-2 rounded-xl font-bold"
+            className="cane-btn w-full flex items-center justify-center gap-2 rounded-2xl font-semibold"
             style={{
-              background: "#3B82F6",
+              background: "linear-gradient(135deg, #2563EB, #3B82F6)",
               color: "#fff",
               height: 56,
-              fontSize: large ? 18 : 17,
-              boxShadow: "0 4px 28px rgba(59,130,246,0.35)",
+              fontSize: large ? 17 : 16,
+              boxShadow: "0 4px 24px rgba(59,130,246,0.3)",
+              letterSpacing: "0.01em",
             }}
           >
+            <Navigation size={18} strokeWidth={2} />
             Start Navigation
-            <ArrowRight size={20} />
           </button>
 
           <button
             onClick={goBack}
             aria-label="Change destination"
-            className="cane-btn w-full flex items-center justify-center rounded-xl font-semibold"
+            className="cane-btn w-full flex items-center justify-center rounded-2xl font-medium"
             style={{
               background: "transparent",
-              border: "1px solid #1F2937",
-              color: "#9CA3AF",
-              height: 50,
-              fontSize: large ? 17 : 15,
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "#6B7280",
+              height: 48,
+              fontSize: large ? 16 : 14,
             }}
           >
             Change Destination
@@ -575,9 +611,9 @@ function ConfirmScreen({
 
         <p
           className="text-center mt-auto"
-          style={{ color: "#374151", fontSize: 13, lineHeight: 1.7 }}
+          style={{ color: "#374151", fontSize: 12, lineHeight: 1.7 }}
         >
-          Your Wayve will guide you through vibration and servo movement.
+          The smart cane will guide you through haptic feedback.
         </p>
       </div>
     </motion.div>
@@ -640,25 +676,32 @@ function NavigatingScreen({
 
       {/* Status sub-bar */}
       <div
-        className="flex flex-col items-center py-3 gap-1 shrink-0"
-        style={{ borderBottom: "1px solid #1F2937" }}
+        className="flex items-center justify-center gap-2 py-3 shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         {navLoading ? (
-          <p className="font-semibold text-sm" style={{ color: "#F59E0B" }}>
-            📍 Getting your location…
-          </p>
+          <>
+            <Loader2 size={13} color="#F59E0B" style={{ animation: "spin 1s linear infinite" }} />
+            <p className="font-medium text-sm" style={{ color: "#F59E0B" }}>Getting your location…</p>
+          </>
         ) : navError ? (
-          <p className="font-semibold text-sm" style={{ color: "#EF4444" }}>{navError}</p>
+          <>
+            <AlertCircle size={13} color="#EF4444" />
+            <p className="font-medium text-sm" style={{ color: "#EF4444" }}>{navError}</p>
+          </>
         ) : hasRealSteps ? (
-          <p className="font-semibold text-sm" style={{ color: "#10B981" }}>
-            🗺 Live navigation · {tripDuration} · {tripDistance}
-          </p>
+          <>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 6px rgba(16,185,129,0.7)", display: "inline-block" }} />
+            <p className="font-medium text-sm" style={{ color: "#10B981" }}>
+              Live · {tripDuration} · {tripDistance}
+            </p>
+          </>
         ) : (
-          <p className="font-semibold text-sm" style={{ color: "#F59E0B" }}>
-            Waiting for directions…
-          </p>
+          <>
+            <Loader2 size={13} color="#6B7280" style={{ animation: "spin 1s linear infinite" }} />
+            <p className="font-medium text-sm" style={{ color: "#6B7280" }}>Waiting for directions…</p>
+          </>
         )}
-        <p style={{ color: "#4B5563", fontSize: 11 }}>GPS updating continuously</p>
       </div>
 
       <div className="flex flex-col px-5 py-5 gap-5 flex-1">
@@ -699,18 +742,18 @@ function NavigatingScreen({
             </p>
           </div>
 
-          {/* DEV: direction switcher */}
-          <div className="flex gap-2 mt-1">
+          {/* Direction test */}
+          <div className="flex gap-1.5 mt-1">
             {["left", "straight", "right"].map((dir) => (
               <button
                 key={dir}
                 onClick={() => { setCurrentDirection(dir); setArrowRotation(dir === "left" ? -90 : dir === "right" ? 90 : 0); }}
                 aria-label={`Test direction: ${dir}`}
-                className="cane-btn px-3 py-1 rounded-full text-xs font-semibold"
+                className="cane-btn px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{
-                  background: currentDirection === dir ? "#3B82F6" : "#1A2235",
-                  color: currentDirection === dir ? "#fff" : "#4B5563",
-                  border: `1px solid ${currentDirection === dir ? "rgba(59,130,246,0.5)" : "#1F2937"}`,
+                  background: currentDirection === dir ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.04)",
+                  color: currentDirection === dir ? "#93C5FD" : "#374151",
+                  border: `1px solid ${currentDirection === dir ? "rgba(59,130,246,0.3)" : "rgba(255,255,255,0.06)"}`,
                   transition: "all 150ms ease",
                 }}
               >
@@ -722,90 +765,80 @@ function NavigatingScreen({
 
         {/* Progress */}
         <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between mb-1">
+            <p style={{ color: "#6B7280", fontSize: 12 }}>
+              {hasRealSteps
+                ? `Step ${currentStepIndex + 1} of ${navSteps.length}`
+                : `Step ${currentStep} of ${totalSteps}`}
+            </p>
+            <p style={{ color: "#6B7280", fontSize: 12 }}>{Math.round(progress)}%</p>
+          </div>
           <div
             className="w-full rounded-full overflow-hidden"
-            style={{ background: "#1A2235", height: 6 }}
+            style={{ background: "rgba(255,255,255,0.06)", height: 4 }}
           >
             <div
               className="h-full rounded-full"
               style={{
                 width: `${progress}%`,
-                background: "#3B82F6",
-                boxShadow: "0 0 10px rgba(59,130,246,0.6)",
+                background: "linear-gradient(90deg, #2563EB, #3B82F6)",
+                boxShadow: "0 0 8px rgba(59,130,246,0.5)",
                 transition: "width 500ms ease",
               }}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <p style={{ color: "#9CA3AF", fontSize: 13 }}>
-              {hasRealSteps
-                ? `Step ${currentStepIndex + 1} of ${navSteps.length}`
-                : `${currentStep} of ${totalSteps} steps`}
-            </p>
-            <p style={{ color: "#9CA3AF", fontSize: 13 }}>{Math.round(progress)}%</p>
-          </div>
-          <button
-            onClick={bumpProgress}
-            aria-label="Advance progress by 10 percent for testing"
-            className="cane-btn self-start px-3 py-1 rounded-full text-xs font-medium"
-            style={{
-              background: "#1A2235",
-              color: "#4B5563",
-              border: "1px solid #1F2937",
-            }}
-          >
-            +10% (test)
-          </button>
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           <button
             onClick={handleRepeatInstruction}
             aria-label="Repeat current navigation instruction aloud"
-            className="cane-btn w-full flex items-center justify-center gap-2 rounded-xl font-semibold"
+            className="cane-btn w-full flex items-center justify-center gap-2 rounded-2xl font-medium"
             style={{
-              background: "#111827",
-              border: "1px solid #1F2937",
-              color: "#F9FAFB",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "#D1D5DB",
               height: 50,
-              fontSize: large ? 17 : 15,
+              fontSize: large ? 16 : 14,
             }}
           >
-            <Volume2 size={18} />
-            Repeat Instruction 🔊
+            <Volume2 size={17} />
+            Repeat Instruction
           </button>
 
-          <button
-            onClick={handleSimulateArrival}
-            aria-label="Simulate arrival for testing"
-            className="cane-btn w-full flex items-center justify-center rounded-xl font-medium"
-            style={{
-              background: "transparent",
-              border: "1px solid #1A2235",
-              color: "#374151",
-              height: 40,
-              fontSize: 12,
-            }}
-          >
-            Simulate Arrival (dev)
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSimulateArrival}
+              aria-label="Simulate arrival"
+              className="cane-btn flex-1 flex items-center justify-center rounded-2xl font-medium"
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                color: "#4B5563",
+                height: 42,
+                fontSize: 12,
+              }}
+            >
+              Simulate Arrival
+            </button>
 
-          <button
-            onClick={handleStopNavigation}
-            aria-label="Stop navigation and return to home"
-            className="cane-btn w-full flex items-center justify-center gap-2 rounded-xl font-bold"
-            style={{
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.22)",
-              color: "#EF4444",
-              height: 52,
-              fontSize: large ? 17 : 16,
-            }}
-          >
-            <StopCircle size={20} />
-            Stop Navigation
-          </button>
+            <button
+              onClick={handleStopNavigation}
+              aria-label="Stop navigation"
+              className="cane-btn flex-1 flex items-center justify-center gap-1.5 rounded-2xl font-semibold"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                color: "#EF4444",
+                height: 42,
+                fontSize: 13,
+              }}
+            >
+              <StopCircle size={15} />
+              Stop
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -986,13 +1019,17 @@ function SettingsScreen({
               aria-label="Test connection to cane device"
               className="cane-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
               style={{
-                background: caneConnected ? "rgba(16,185,129,0.1)" : "#1A2235",
-                border: `1px solid ${caneConnected ? "rgba(16,185,129,0.35)" : "#1F2937"}`,
+                background: caneConnected ? "rgba(16,185,129,0.1)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${caneConnected ? "rgba(16,185,129,0.35)" : "rgba(255,255,255,0.08)"}`,
                 color: caneConnected ? "#10B981" : "#9CA3AF",
                 transition: "all 200ms ease",
               }}
             >
-              {caneConnected ? "🟢 Connected" : "🔴 Test Connection"}
+              {caneConnected ? (
+                <><Check size={13} />Connected</>
+              ) : (
+                <><Radio size={13} />Test Connection</>
+              )}
             </button>
           </div>
         </div>
@@ -1075,9 +1112,9 @@ function SettingsScreen({
               <p className="font-medium" style={{ color: "#F9FAFB", fontSize: large ? 17 : 15 }}>
                 Directions API
               </p>
-              <p style={{ color: "#6B7280", fontSize: 12 }}>
-                {mapsStatus === "ok"  && "✅ Key is valid and working"}
-                {mapsStatus === "error" && "❌ Key invalid or request failed"}
+              <p className="flex items-center gap-1.5" style={{ color: "#6B7280", fontSize: 12 }}>
+                {mapsStatus === "ok" && <><Check size={11} color="#10B981" /><span style={{ color: "#10B981" }}>Key is valid and working</span></>}
+                {mapsStatus === "error" && <><X size={11} color="#EF4444" /><span style={{ color: "#EF4444" }}>Key invalid or request failed</span></>}
                 {mapsStatus === "loading" && "Testing…"}
                 {mapsStatus === null && "Tap to verify your API key"}
               </p>

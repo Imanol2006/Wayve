@@ -19,12 +19,17 @@ html, body, #root {
 
 /* Mic pulse rings */
 @keyframes cane-pulse-outer {
-  0%   { transform: scale(1);   opacity: 0.55; }
-  100% { transform: scale(2.3); opacity: 0; }
+  0%   { transform: scale(1);   opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 @keyframes cane-pulse-inner {
-  0%   { transform: scale(1);   opacity: 0.4; }
-  100% { transform: scale(1.75); opacity: 0; }
+  0%   { transform: scale(1);   opacity: 0.35; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Loader spin */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Button press feedback */
