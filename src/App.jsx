@@ -245,6 +245,7 @@ const fade = {
 function HomeScreen({
   navigate,
   isListening,
+  transcript,
   handleMicPress,
   destinationInput,
   setDestinationInput,
@@ -1468,6 +1469,7 @@ export default function WayveApp() {
               {...shared}
               navigate={navigate}
               isListening={isListening}
+              transcript={transcript}
               handleMicPress={handleMicPress}
               destinationInput={destinationInput}
               setDestinationInput={setDestinationInput}
