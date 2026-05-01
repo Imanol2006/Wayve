@@ -23,6 +23,29 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Compass bearing from point A to point B (0–360, 0 = North)
+function calculateBearing(lat1, lng1, lat2, lng2) {
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+// Fallback rotation from Google maneuver string when GPS heading unavailable
+function maneuverToRotation(maneuver) {
+  if (!maneuver) return 0;
+  if (maneuver.includes("uturn")) return 180;
+  if (maneuver.includes("sharp-left")) return -135;
+  if (maneuver.includes("sharp-right")) return 135;
+  if (maneuver.includes("slight-left")) return -45;
+  if (maneuver.includes("slight-right")) return 45;
+  if (maneuver.includes("left")) return -90;
+  if (maneuver.includes("right")) return 90;
+  return 0;
+}
+
 function maneuverToDirection(maneuver) {
   if (!maneuver) return "straight";
   if (maneuver.includes("left")) return "left";
@@ -182,8 +205,7 @@ function SettingRow({ label, description, control, large }) {
 }
 
 // ─── Directional arrow SVG ────────────────────────────────────────────────────
-function DirectionalArrow({ direction }) {
-  const rotation = direction === "left" ? -90 : direction === "right" ? 90 : 0;
+function DirectionalArrow({ rotation }) {
   return (
     <div
       style={{
@@ -564,6 +586,8 @@ function NavigatingScreen({
   setCaneConnected,
   currentDirection,
   setCurrentDirection,
+  arrowRotation,
+  setArrowRotation,
   progress,
   setProgress,
   currentStep,
@@ -642,7 +666,7 @@ function NavigatingScreen({
             minHeight: 240,
           }}
         >
-          <DirectionalArrow direction={currentDirection} />
+          <DirectionalArrow rotation={arrowRotation} />
 
           <div className="text-center">
             <p
@@ -673,7 +697,7 @@ function NavigatingScreen({
             {["left", "straight", "right"].map((dir) => (
               <button
                 key={dir}
-                onClick={() => setCurrentDirection(dir)}
+                onClick={() => { setCurrentDirection(dir); setArrowRotation(dir === "left" ? -90 : dir === "right" ? 90 : 0); }}
                 aria-label={`Test direction: ${dir}`}
                 className="cane-btn px-3 py-1 rounded-full text-xs font-semibold"
                 style={{
@@ -1135,7 +1159,8 @@ export default function WayveApp() {
   const [tripDistance, setTripDistance] = useState("");
   const [navLoading, setNavLoading] = useState(false);
   const [navError, setNavError] = useState(null);
-  const [liveDistance, setLiveDistance] = useState(null); // meters to next step
+  const [liveDistance, setLiveDistance] = useState(null);
+  const [arrowRotation, setArrowRotation] = useState(0); // degrees: 0=straight, -90=left, 90=right
   const navStepsRef = useRef([]);
   const stepIndexRef = useRef(0);
 
@@ -1309,9 +1334,23 @@ export default function WayveApp() {
 
         const step = steps[idx];
         const dist = haversineDistance(lat, lng, step.endLat, step.endLng);
-
-        // Always update live distance so UI re-renders every GPS fix
         setLiveDistance(Math.round(dist));
+
+        // Compute real bearing to next waypoint vs device heading
+        const bearing = calculateBearing(lat, lng, step.endLat, step.endLng);
+        const deviceHeading = pos.coords.heading; // null when stationary
+        if (deviceHeading !== null && deviceHeading !== undefined) {
+          // Relative bearing: how far right/left of straight ahead the target is
+          let relative = bearing - deviceHeading;
+          if (relative > 180) relative -= 360;
+          if (relative < -180) relative += 360;
+          setArrowRotation(relative);
+          setCurrentDirection(relative < -20 ? "left" : relative > 20 ? "right" : "straight");
+        } else {
+          // Stationary — fall back to Google's maneuver text
+          setArrowRotation(maneuverToRotation(step.maneuver));
+          setCurrentDirection(maneuverToDirection(step.maneuver));
+        }
 
         if (dist < 20) {
           const next = idx + 1;
@@ -1319,6 +1358,7 @@ export default function WayveApp() {
             stepIndexRef.current = next;
             setCurrentStepIndex(next);
             setCurrentStep(next);
+            setArrowRotation(maneuverToRotation(steps[next].maneuver));
             setCurrentDirection(maneuverToDirection(steps[next].maneuver));
             setProgress(Math.round(((next + 1) / steps.length) * 100));
             setLiveDistance(null);
@@ -1393,6 +1433,8 @@ export default function WayveApp() {
               goBack={goBack}
               currentDirection={currentDirection}
               setCurrentDirection={setCurrentDirection}
+              arrowRotation={arrowRotation}
+              setArrowRotation={setArrowRotation}
               progress={progress}
               setProgress={setProgress}
               currentStep={currentStep}
