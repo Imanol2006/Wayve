@@ -1208,10 +1208,16 @@ export default function WayveApp() {
 
   const procesarConGemini = async (textoUsuario) => {
     const key = import.meta.env.VITE_GEMINI_KEY;
+    if (!key) {
+      setDestination(textoUsuario);
+      setTranscript("");
+      navigate("confirm");
+      return;
+    }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
     const body = {
       contents: [{
-        parts: [{ text: `You are a navigation assistant. The user says: "${textoUsuario}". Extract the destination and respond only with JSON: {"destino": "place name"}` }]
+        parts: [{ text: `You are a navigation assistant. The user says: "${textoUsuario}". Extract only the destination name and respond with JSON: {"destino": "place name"}. No extra text.` }]
       }]
     };
     try {
@@ -1224,15 +1230,22 @@ export default function WayveApp() {
       if (data.error) throw new Error(data.error.message);
       let text = data.candidates[0].content.parts[0].text;
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(text);
-      if (parsed.destino) {
-        setDestination(parsed.destino);
-        setTranscript("");
-        navigate("confirm");
+      let dest = textoUsuario;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.destino) dest = parsed.destino;
+      } catch {
+        const match = text.match(/"destino"\s*:\s*"([^"]+)"/);
+        if (match) dest = match[1];
       }
+      setDestination(dest);
+      setTranscript("");
+      navigate("confirm");
     } catch (e) {
       console.error("Gemini error:", e.message);
-      setTranscript("Could not understand destination. Try again.");
+      setDestination(textoUsuario);
+      setTranscript("");
+      navigate("confirm");
     }
   };
 
