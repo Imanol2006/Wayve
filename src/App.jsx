@@ -574,6 +574,7 @@ function NavigatingScreen({
   tripDistance,
   navLoading,
   navError,
+  liveDistance,
   handleStopNavigation,
   handleRepeatInstruction,
   handleSimulateArrival,
@@ -659,7 +660,11 @@ function NavigatingScreen({
               className="mt-2"
               style={{ color: "#9CA3AF", fontSize: large ? 16 : 14 }}
             >
-              {hasRealSteps ? `In approximately ${distanceToNext}` : "In approximately 20 meters"}
+              {hasRealSteps && liveDistance !== null
+              ? `${liveDistance}m to next turn`
+              : hasRealSteps
+              ? `In approximately ${distanceToNext}`
+              : "In approximately 20 meters"}
             </p>
           </div>
 
@@ -1130,6 +1135,7 @@ export default function WayveApp() {
   const [tripDistance, setTripDistance] = useState("");
   const [navLoading, setNavLoading] = useState(false);
   const [navError, setNavError] = useState(null);
+  const [liveDistance, setLiveDistance] = useState(null); // meters to next step
   const navStepsRef = useRef([]);
   const stepIndexRef = useRef(0);
 
@@ -1304,6 +1310,9 @@ export default function WayveApp() {
         const step = steps[idx];
         const dist = haversineDistance(lat, lng, step.endLat, step.endLng);
 
+        // Always update live distance so UI re-renders every GPS fix
+        setLiveDistance(Math.round(dist));
+
         if (dist < 20) {
           const next = idx + 1;
           if (next < steps.length) {
@@ -1311,13 +1320,12 @@ export default function WayveApp() {
             setCurrentStepIndex(next);
             setCurrentStep(next);
             setCurrentDirection(maneuverToDirection(steps[next].maneuver));
-            setProgress(Math.round((next / steps.length) * 100));
-            // Speak next instruction
+            setProgress(Math.round(((next + 1) / steps.length) * 100));
+            setLiveDistance(null);
             const utt = new SpeechSynthesisUtterance(steps[next].instruction);
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utt);
           } else {
-            // Last step — arrived
             setProgress(100);
             setCurrentStep(steps.length);
             setTimeout(() => {
@@ -1329,7 +1337,7 @@ export default function WayveApp() {
         }
       },
       (err) => console.warn("GPS error:", err.message),
-      { enableHighAccuracy: true, maximumAge: 3000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -1395,6 +1403,7 @@ export default function WayveApp() {
               tripDistance={tripDistance}
               navLoading={navLoading}
               navError={navError}
+              liveDistance={liveDistance}
               handleStopNavigation={handleStopNavigation}
               handleRepeatInstruction={handleRepeatInstruction}
               handleSimulateArrival={handleSimulateArrival}
