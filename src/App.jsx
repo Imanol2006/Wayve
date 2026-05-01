@@ -1307,10 +1307,11 @@ export default function WayveApp() {
         (pos) => {
           const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           const service = new window.google.maps.DirectionsService();
+          const navDestination = confirmPreview?.address ?? destination;
           service.route(
             {
               origin,
-              destination,
+              destination: navDestination,
               travelMode: window.google.maps.TravelMode.WALKING,
             },
             (result, status) => {
