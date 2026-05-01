@@ -70,9 +70,9 @@ function stripHtml(html) {
 
 function loadGoogleMapsScript(key) {
   return new Promise((resolve) => {
-    if (window.google?.maps) { resolve(); return; }
+    if (window.google?.maps?.places) { resolve(); return; }
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
     s.onload = resolve;
     document.head.appendChild(s);
   });
@@ -1481,39 +1481,47 @@ export default function WayveApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [currentScreen]); // eslint-disable-line
 
-  // Geocode destination near origin, then route — returns a Promise<{steps,duration,distance,address}|null>
+  // Find place near origin using Places API, then route
   const geocodeAndRoute = (origin, destText) => new Promise((resolve) => {
-    const geocoder = new window.google.maps.Geocoder();
-    const bounds = new window.google.maps.LatLngBounds(
-      new window.google.maps.LatLng(origin.lat - 0.15, origin.lng - 0.15),
-      new window.google.maps.LatLng(origin.lat + 0.15, origin.lng + 0.15)
-    );
-    geocoder.geocode({ address: destText, bounds }, (geoResults, geoStatus) => {
-      if (geoStatus !== "OK" || !geoResults.length) { resolve(null); return; }
-      const destLatLng = geoResults[0].geometry.location;
-      const resolvedAddress = geoResults[0].formatted_address;
-      const service = new window.google.maps.DirectionsService();
-      service.route(
-        { origin, destination: destLatLng, travelMode: window.google.maps.TravelMode.WALKING },
-        (result, status) => {
-          if (status !== "OK") { resolve(null); return; }
-          const leg = result.routes[0].legs[0];
-          const steps = leg.steps.map((s) => ({
-            instruction: stripHtml(s.instructions),
-            distance: s.distance.text,
-            maneuver: s.maneuver ?? "",
-            endLat: s.end_location.lat(),
-            endLng: s.end_location.lng(),
-          }));
-          resolve({
-            steps,
-            address: leg.end_address || resolvedAddress,
-            distance: leg.distance.text,
-            duration: leg.duration.text,
-          });
+    const mapDiv = document.createElement("div");
+    const map = new window.google.maps.Map(mapDiv, { center: origin, zoom: 15 });
+    const places = new window.google.maps.places.PlacesService(map);
+
+    places.findPlaceFromQuery(
+      {
+        query: destText,
+        fields: ["geometry", "formatted_address", "name"],
+        locationBias: new window.google.maps.Circle({ center: origin, radius: 15000 }),
+      },
+      (results, status) => {
+        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+          resolve(null); return;
         }
-      );
-    });
+        const destLatLng = results[0].geometry.location;
+        const resolvedAddress = results[0].formatted_address || results[0].name;
+        const service = new window.google.maps.DirectionsService();
+        service.route(
+          { origin, destination: destLatLng, travelMode: window.google.maps.TravelMode.WALKING },
+          (result, status) => {
+            if (status !== "OK") { resolve(null); return; }
+            const leg = result.routes[0].legs[0];
+            const steps = leg.steps.map((s) => ({
+              instruction: stripHtml(s.instructions),
+              distance: s.distance.text,
+              maneuver: s.maneuver ?? "",
+              endLat: s.end_location.lat(),
+              endLng: s.end_location.lng(),
+            }));
+            resolve({
+              steps,
+              address: leg.end_address || resolvedAddress,
+              distance: leg.distance.text,
+              duration: leg.duration.text,
+            });
+          }
+        );
+      }
+    );
   });
 
   // Resolve real address + distance when confirm screen opens
