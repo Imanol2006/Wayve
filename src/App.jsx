@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -10,6 +10,7 @@ import {
   Volume2,
   ArrowRight,
 } from "lucide-react";
+import * as bluetooth from "./services/bluetooth.js";
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ function ConnectionPill({ connected }) {
   );
 }
 
-function TopBar({ onBack, caneConnected, setCaneConnected }) {
+function TopBar({ onBack, caneConnected }) {
   return (
     <div
       className="flex items-center justify-between px-5 py-4 shrink-0"
@@ -56,13 +57,12 @@ function TopBar({ onBack, caneConnected, setCaneConnected }) {
         WAYVE
       </span>
 
-      <button
-        onClick={() => setCaneConnected((v) => !v)}
-        aria-label={`Cane ${caneConnected ? "connected" : "disconnected"} — tap to toggle`}
-        className="cane-btn"
+      <div
+        role="status"
+        aria-label={`Cane ${caneConnected ? "connected" : "disconnected"}`}
       >
         <ConnectionPill connected={caneConnected} />
-      </button>
+      </div>
     </div>
   );
 }
@@ -815,8 +815,10 @@ function SettingsScreen({
   goBack,
   caneConnected,
   setCaneConnected,
-  arduinoIP,
-  setArduinoIP,
+  caneDeviceName,
+  bleError,
+  bleConnecting,
+  obstacleDistance,
   walkingSpeed,
   setWalkingSpeed,
   updateFrequency,
@@ -830,6 +832,7 @@ function SettingsScreen({
   language,
   setLanguage,
   handleTestConnection,
+  handleSendDebugCue,
   mapsStatus,
   handleTestMapsAPI,
   large,
@@ -867,45 +870,104 @@ function SettingsScreen({
         <SectionDivider label="Device" />
         <div style={card}>
           <SettingRow
-            label="Arduino IP Address"
-            description="Local network address of your smart cane"
+            label="Wayve cane"
+            description={
+              caneConnected
+                ? `Connected to ${caneDeviceName ?? "BlindCane"} via Bluetooth`
+                : "Pair via Web Bluetooth — tap below to start"
+            }
             large={large}
             control={
-              <input
-                type="text"
-                value={arduinoIP}
-                onChange={(e) => setArduinoIP(e.target.value)}
-                aria-label="Arduino IP address"
-                className="rounded-lg px-3 font-mono text-right focus:outline-none"
+              <span
+                className="font-mono text-xs px-2 py-1 rounded"
                 style={{
-                  background: "#0A0E1A",
-                  border: "1px solid #1F2937",
-                  color: "#F9FAFB",
-                  fontSize: 13,
-                  height: 36,
-                  width: 130,
-                  caretColor: "#3B82F6",
-                  transition: "border-color 150ms",
+                  background: caneConnected ? "rgba(16,185,129,0.1)" : "#1A2235",
+                  color: caneConnected ? "#10B981" : "#6B7280",
+                  border: `1px solid ${caneConnected ? "rgba(16,185,129,0.3)" : "#1F2937"}`,
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#3B82F6")}
-                onBlur={(e) => (e.target.style.borderColor = "#1F2937")}
-              />
+              >
+                {caneConnected ? "BLE" : "—"}
+              </span>
             }
           />
-          <div className="px-5 pb-4 pt-1">
+          {obstacleDistance != null && (
+            <SettingRow
+              label="Obstacle sensor"
+              description="Last reading from the ultrasonic sensor"
+              large={large}
+              control={
+                <span
+                  className="font-mono text-xs px-2 py-1 rounded"
+                  style={{
+                    background: "#1A2235",
+                    color: "#F9FAFB",
+                    border: "1px solid #1F2937",
+                  }}
+                >
+                  {obstacleDistance} cm
+                </span>
+              }
+            />
+          )}
+          <div className="px-5 pb-4 pt-1 flex flex-col gap-2">
             <button
               onClick={handleTestConnection}
-              aria-label="Test connection to cane device"
-              className="cane-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
+              disabled={bleConnecting}
+              aria-label={
+                caneConnected
+                  ? "Disconnect from cane"
+                  : "Connect to cane via Bluetooth"
+              }
+              className="cane-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm self-start"
               style={{
                 background: caneConnected ? "rgba(16,185,129,0.1)" : "#1A2235",
                 border: `1px solid ${caneConnected ? "rgba(16,185,129,0.35)" : "#1F2937"}`,
                 color: caneConnected ? "#10B981" : "#9CA3AF",
+                opacity: bleConnecting ? 0.6 : 1,
                 transition: "all 200ms ease",
               }}
             >
-              {caneConnected ? "🟢 Connected" : "🔴 Test Connection"}
+              {bleConnecting
+                ? "Connecting…"
+                : caneConnected
+                  ? "🟢 Connected — tap to disconnect"
+                  : "🔴 Connect to Wayve"}
             </button>
+            {bleError && (
+              <p style={{ color: "#EF4444", fontSize: 12 }}>{bleError}</p>
+            )}
+            {caneConnected && (
+              <div className="flex flex-col gap-1.5 mt-1">
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "#4B5563" }}
+                >
+                  Debug cues
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { cue: "L", label: "Left" },
+                    { cue: "R", label: "Right" },
+                    { cue: "N", label: "Neutral" },
+                    { cue: "B", label: "Both" },
+                  ].map(({ cue, label }) => (
+                    <button
+                      key={cue}
+                      onClick={() => handleSendDebugCue(cue)}
+                      aria-label={`Send ${label} cue to cane`}
+                      className="cane-btn px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{
+                        background: "#1A2235",
+                        border: "1px solid #1F2937",
+                        color: "#F9FAFB",
+                      }}
+                    >
+                      {label} ({cue})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1058,8 +1120,27 @@ export default function WayveApp() {
   const [currentScreen, setCurrentScreen] = useState("home");
   const [screenHistory, setScreenHistory] = useState([]);
 
-  // ── Device ──
+  // ── Device (BLE) ──
   const [caneConnected, setCaneConnected] = useState(false);
+  const [caneDeviceName, setCaneDeviceName] = useState(null);
+  const [bleConnecting, setBleConnecting] = useState(false);
+  const [bleError, setBleError] = useState(null);
+  const [obstacleDistance, setObstacleDistance] = useState(null);
+
+  useEffect(() => {
+    const offStatus = bluetooth.onStatusChange(({ connected, deviceName }) => {
+      setCaneConnected(connected);
+      setCaneDeviceName(deviceName);
+      if (!connected) setObstacleDistance(null);
+    });
+    const offObstacle = bluetooth.onObstacle(({ distanceCm }) => {
+      setObstacleDistance(distanceCm);
+    });
+    return () => {
+      offStatus();
+      offObstacle();
+    };
+  }, []);
 
   // ── Home ──
   const [isListening, setIsListening] = useState(false);
@@ -1079,7 +1160,6 @@ export default function WayveApp() {
   const [mapsStatus, setMapsStatus] = useState(null); // null | "loading" | "ok" | "error"
 
   // ── Settings ──
-  const [arduinoIP, setArduinoIP] = useState("192.168.1.x");
   const [walkingSpeed, setWalkingSpeed] = useState("Normal");
   const [updateFrequency, setUpdateFrequency] = useState("3s");
   const [voiceFeedback, setVoiceFeedback] = useState(true);
@@ -1144,9 +1224,34 @@ export default function WayveApp() {
     // TODO: connect to backend — call navigator.share({ url, text }) with current GPS coordinates
   };
 
-  const handleTestConnection = () => {
-    setCaneConnected((v) => !v); // demo toggle
-    // TODO: connect to backend — fetch(`http://${arduinoIP}/ping`).then(updateCaneConnected)
+  const handleTestConnection = async () => {
+    setBleError(null);
+    if (caneConnected) {
+      bluetooth.disconnect();
+      return;
+    }
+    if (!bluetooth.isSupported()) {
+      setBleError(
+        "Web Bluetooth not available. Use Chrome/Edge over HTTPS or localhost."
+      );
+      return;
+    }
+    setBleConnecting(true);
+    try {
+      await bluetooth.connect();
+    } catch (err) {
+      // Common case: user dismissed the chooser dialog. Don't surface as error.
+      const msg = String(err?.message ?? err);
+      if (!msg.toLowerCase().includes("user cancelled")) {
+        setBleError(msg);
+      }
+    } finally {
+      setBleConnecting(false);
+    }
+  };
+
+  const handleSendDebugCue = (cue) => {
+    bluetooth.sendCommand(cue);
   };
 
   const handleTestMapsAPI = async () => {
@@ -1253,8 +1358,10 @@ export default function WayveApp() {
               key="settings"
               {...shared}
               goBack={goBack}
-              arduinoIP={arduinoIP}
-              setArduinoIP={setArduinoIP}
+              caneDeviceName={caneDeviceName}
+              bleConnecting={bleConnecting}
+              bleError={bleError}
+              obstacleDistance={obstacleDistance}
               walkingSpeed={walkingSpeed}
               setWalkingSpeed={setWalkingSpeed}
               updateFrequency={updateFrequency}
@@ -1268,6 +1375,7 @@ export default function WayveApp() {
               language={language}
               setLanguage={setLanguage}
               handleTestConnection={handleTestConnection}
+              handleSendDebugCue={handleSendDebugCue}
               mapsStatus={mapsStatus}
               handleTestMapsAPI={handleTestMapsAPI}
             />
