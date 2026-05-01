@@ -454,18 +454,16 @@ function HomeScreen({
 // ═══════════════════════════════════════════════════════════════════════════════
 function ConfirmScreen({
   destination,
+  confirmPreview,
   goBack,
   caneConnected,
   setCaneConnected,
   handleStartNavigation,
   large,
 }) {
-  const addresses = {
-    Home: "1234 Mesa Hills Dr, El Paso, TX 79912",
-    "Nearest Hospital": "4815 Alameda Ave, El Paso, TX 79905",
-    "Nearest Bus Stop": "Corner of Mesa St & Montana Ave, El Paso, TX 79902",
-  };
-  const address = addresses[destination] ?? "123 Main St, El Paso, TX 79901";
+  const address = confirmPreview?.address ?? "Resolving location…";
+  const distanceLabel = confirmPreview?.distance ?? "—";
+  const durationLabel = confirmPreview?.duration ?? "—";
 
   return (
     <motion.div
@@ -521,8 +519,8 @@ function ConfirmScreen({
 
           <div className="flex gap-2 flex-wrap">
             {[
-              { icon: "🚶", label: "12 min walk" },
-              { icon: "📍", label: "0.8 miles away" },
+              { icon: "🚶", label: confirmPreview ? `${durationLabel} walk` : "…" },
+              { icon: "📍", label: confirmPreview ? distanceLabel : "…" },
             ].map(({ icon, label }) => (
               <div
                 key={label}
@@ -1177,6 +1175,9 @@ export default function WayveApp() {
   // ── Arrived ──
   const [arrived, setArrived] = useState(false);
 
+  // ── Confirm screen preview ──
+  const [confirmPreview, setConfirmPreview] = useState(null); // {address, distance, duration}
+
   // ── Maps API test ──
   const [mapsStatus, setMapsStatus] = useState(null); // null | "loading" | "ok" | "error"
 
@@ -1458,6 +1459,36 @@ export default function WayveApp() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [currentScreen]); // eslint-disable-line
 
+  // Resolve real address + distance when confirm screen opens
+  useEffect(() => {
+    if (currentScreen !== "confirm" || !destination) return;
+    setConfirmPreview(null);
+    const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    loadGoogleMapsScript(key).then(() => {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const service = new window.google.maps.DirectionsService();
+        service.route(
+          {
+            origin,
+            destination,
+            travelMode: window.google.maps.TravelMode.WALKING,
+          },
+          (result, status) => {
+            if (status === "OK") {
+              const leg = result.routes[0].legs[0];
+              setConfirmPreview({
+                address: leg.end_address,
+                distance: leg.distance.text,
+                duration: leg.duration.text,
+              });
+            }
+          }
+        );
+      });
+    });
+  }, [currentScreen, destination]); // eslint-disable-line
+
   const shared = {
     large: largeTextMode,
     caneConnected,
@@ -1496,6 +1527,7 @@ export default function WayveApp() {
               key="confirm"
               {...shared}
               destination={destination}
+              confirmPreview={confirmPreview}
               goBack={goBack}
               handleStartNavigation={handleStartNavigation}
             />
