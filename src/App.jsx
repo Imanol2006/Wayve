@@ -499,7 +499,7 @@ function ConfirmScreen({
   handleStartNavigation,
   large,
 }) {
-  const address = confirmPreview?.address ?? "Resolving location…";
+  const address = confirmPreview?.address ?? (confirmPreview?.error ? `Maps error: ${confirmPreview.error}` : "Resolving location…");
   const distanceLabel = confirmPreview?.distance ?? "—";
   const durationLabel = confirmPreview?.duration ?? "—";
 
@@ -1350,10 +1350,11 @@ export default function WayveApp() {
               origin,
               destination: navDestination,
               travelMode: window.google.maps.TravelMode.WALKING,
+              region: "us",
             },
             (result, status) => {
               setNavLoading(false);
-              if (status !== "OK") { setNavError("Could not find directions."); return; }
+              if (status !== "OK") { setNavError(`Directions failed: ${status}`); return; }
               const leg = result.routes[0].legs[0];
               const steps = leg.steps.map((s) => ({
                 instruction: stripHtml(s.instructions),
@@ -1511,6 +1512,7 @@ export default function WayveApp() {
             origin,
             destination,
             travelMode: window.google.maps.TravelMode.WALKING,
+            region: "us",
           },
           (result, status) => {
             if (status === "OK") {
@@ -1520,6 +1522,8 @@ export default function WayveApp() {
                 distance: leg.distance.text,
                 duration: leg.duration.text,
               });
+            } else {
+              setConfirmPreview({ error: status });
             }
           }
         );
